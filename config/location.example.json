@@ -1,0 +1,6 @@
+{
+  "latitude": null,
+  "longitude": null,
+  "confirmed_actual_location": false,
+  "source": "Set only actual device coordinates obtained from the official mini-program."
+}

@@ -1,0 +1,14 @@
+.venv/
+private/
+__pycache__/
+.pytest_cache/
+*.log
+inspect_package.py
+verify_sold_out.py
+.env
+.env.*
+*.pem
+*.key
+*.cer
+*.p12
+*.wxapkg

@@ -1,6 +1,6 @@
 # 静安体育单账号 API 客户端
 
-WSL/Linux + Python 3.12 项目，用于读取官方消费券列表、检查本人账号资格，并按官方轮次时间领取。
+Windows原生或WSL/Linux + Python 3.12 项目，用于读取官方消费券列表、检查本人账号资格，并按官方轮次时间领取。
 
 **尚未成功领取消费券。** 已验证券列表、账号资格、签名格式和售罄业务响应。2026年10月13日用户报告的拥堵提示没有旧版返回码记录，原因不能还原，不保证领取成功。
 
@@ -14,7 +14,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-本次验证环境为Windows64位、WSL Ubuntu和Python 3.12。客户端使用Linux进程锁，Windows原生Python未支持。Windows采集工具需要64位PowerShell和可用的WSL发行版。
+本次验证环境为Windows64位原生Python3.12和WSL Ubuntu，两种环境均通过32项测试。无需WSL的安装、启动和采集步骤见 [Windows原生说明](docs/WINDOWS.md)。原有Start-Capture.ps1采集入口仍需要WSL。requirements.lock.txt仅为WSL环境快照；Windows请使用Setup-Windows.ps1。
 
 仓库不含本人会话、Token、定位、原始流量、证书或第三方小程序源码。它们仅存于被Git忽略的private/。新克隆可以读取公开券列表，实际领取需要配置本人会话和实际位置，步骤见交接说明。
 
@@ -33,7 +33,7 @@ python3 -m venv .venv
 
 默认发送仅允许当日轮次，避免迟到启动后悄悄转去等明天。有明确跨日计划时使用 --at 指定完整日期时间。系统自动校时应开启。
 
-Windows通用入口：Run.ps1 -CouponId 4；试运行加 -DryRun，发行版可用 -Distro 指定。也保留Run-60.ps1。
+Windows原生入口：Run-Windows.ps1 -CouponId 4，试运行加 -DryRun，详见Windows原生说明。WSL入口：Run.ps1 -CouponId 4；试运行加 -DryRun，发行版可用 -Distro 指定。也保留Run-60.ps1。
 
 ## 网络
 

@@ -5,7 +5,6 @@ import json
 import math
 import os
 import sys
-import fcntl
 import time
 import uuid
 from datetime import datetime, timedelta
@@ -18,6 +17,7 @@ from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from claim import load_request, target_time, wait_until
+from process_lock import LockBusy, SingleInstanceLock
 
 ROOT = Path(__file__).resolve().parent
 CN = ZoneInfo('Asia/Shanghai')
@@ -274,10 +274,10 @@ def main():
         return 0
     lock = None
     if args.command == 'claim' and args.send:
-        lock = open(ROOT / 'private/claim.lock', 'a')
+        lock = SingleInstanceLock(ROOT / 'private/claim.lock')
         try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
+            lock.acquire()
+        except LockBusy:
             lock.close()
             print(json.dumps({'state': 'another_claim_process_is_running'}))
             audit('run_rejected', reason='another_claim_process_is_running')

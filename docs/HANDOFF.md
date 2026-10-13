@@ -27,7 +27,7 @@
 
 ## 换电脑或新克隆
 
-支持范围：Linux/WSL客户端；本次测试环境为Windows 64位、WSL Ubuntu、Python 3.12。Windows原生Python直接运行未支持，客户端依赖Linux进程锁。Windows采集脚本需64位PowerShell、可用的WSL发行版，并将仓库放在可从Windows访问的目录中。
+支持Windows原生和Linux/WSL客户端。没有WSL时，先按 [Windows原生使用说明](WINDOWS.md) 安装Python3.12、运行Setup-Windows.ps1，然后使用Run-Windows.ps1；本文件下面的 .venv/bin/python 命令是WSL示例。Windows原生采集使用Start-Windows-Capture.ps1并手动恢复代理和证书；原有Start-Capture.ps1和Restore-Capture.ps1仍需要WSL。两种环境均通过32项测试。
 
 仓库为私有仓库。接手人的GitHub账号需要已有访问权限，或由仓库所有者提供不含私人文件的源码副本。本项目不会自动添加协作者或发送凭据。
 

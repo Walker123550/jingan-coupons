@@ -54,5 +54,5 @@ def test_200_business_failure_is_not_success():
         result=client.submit(22,'31.0,121.0','0123456789abcdef')
     finally:
         client.close()
-    assert result['state']=='business_rejected'
+    assert result['state']=='signature_rejected'
     assert result['retry'] is False

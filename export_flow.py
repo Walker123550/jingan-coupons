@@ -42,7 +42,7 @@ def main():
             data = json.loads(res["body"])
             parts = urlsplit(req["url"])
             print(json.dumps({"name": args.name, "path": parts.path, "query_keys": [k for k,v in parse_qsl(parts.query)],
-                              "header_names": [k for k,v in req["headers"]], "response_code": data.get("code"), "shape": shape(data)}, ensure_ascii=False))
+                              "header_names": [k for k,v in req["headers"]], "response_code": data.get("code") if isinstance(data, dict) else None, "shape": shape(data)}, ensure_ascii=False))
             return
         time.sleep(0.1)
     raise SystemExit("Export timed out")

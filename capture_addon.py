@@ -37,12 +37,14 @@ class Capture:
             self.task.cancel()
 
     def response(self, flow):
+        parts = urlsplit(flow.request.pretty_url)
+        if parts.hostname != 'shgypsapi.linkingfit.club':
+            return
         response = flow.response
         if not response or "json" not in response.headers.get("content-type", "").lower():
             return
         if len(response.raw_content or b"") > 512_000 or len(flow.request.raw_content or b"") > 128_000:
             return
-        parts = urlsplit(flow.request.pretty_url)
         path = re.sub(r"(?<=/)[0-9a-fA-F-]{20,}(?=/|$)", "<id>", parts.path)
         content = response.get_text(strict=False) or ""
         try:

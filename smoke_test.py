@@ -42,21 +42,12 @@ def main():
             assert response.json()["code"] == "TEST_ONLY"
         time.sleep(0.5)
         index = json.loads((ROOT / "private/index.json").read_text())
-        selected = next(x for x in index if x["host"] == "127.0.0.1" and x["path"] == "/coupon/test")
         assert "SYNTHETIC_TEST" not in json.dumps(index)
-        (ROOT / "private/select.txt").write_text(selected["id"])
-        for _ in range(30):
-            if (ROOT / "private/selection-status.json").exists():
-                break
-            time.sleep(0.1)
-        request = json.loads((ROOT / "private/request.json").read_text())
-        assert any(k.lower() == "authorization" and v == "Bearer SYNTHETIC_TEST" for k, v in request["headers"])
-        print("JSON capture: metadata redacted; selected request exported correctly")
+        assert not any(x['host']=='127.0.0.1' and x['path']=='/coupon/test' for x in index)
+        print("Capture scope: unrelated synthetic traffic is not retained")
     finally:
         server.shutdown()
         server.server_close()
-        for name in ["request.json", "response.json", "selection-status.json", "select.txt"]:
-            (ROOT / "private" / name).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

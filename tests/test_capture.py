@@ -13,7 +13,7 @@ def test_metadata_hides_credentials_and_selected_request_is_exact(tmp_path, monk
     addon = capture_addon.Capture()
     flow = SimpleNamespace(
         id="test-flow",
-        request=SimpleNamespace(pretty_url="https://example.test/coupon/claim?token=SECRET", method="POST",
+        request=SimpleNamespace(pretty_url="https://shgypsapi.linkingfit.club/coupon/claim?token=SECRET", method="POST",
                                 headers=Headers([(b"Authorization", b"Bearer SECRET")]), raw_content=b'{ "coupon": 3 }', timestamp_start=1700000000),
         response=SimpleNamespace(headers=Headers([(b"Content-Type", b"application/json")]), status_code=200,
                                  raw_content=b'{"code":"SOLD_OUT"}', get_text=lambda strict: '{"code":"SOLD_OUT"}'))

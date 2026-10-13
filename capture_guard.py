@@ -2,6 +2,7 @@
 import json
 import subprocess
 import sys
+import shutil
 import time
 from pathlib import Path
 
@@ -21,7 +22,8 @@ def main():
             return
         time.sleep(min(1, max(0.01, deadline - time.monotonic())))
     script_path = subprocess.check_output(["wslpath", "-w", str(ROOT / "Restore-Capture.ps1")], text=True).strip()
-    subprocess.run(["/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile",
+    powershell = shutil.which('powershell.exe') or '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+    subprocess.run([powershell, "-NoProfile",
                     "-ExecutionPolicy", "Bypass", "-File", script_path, "-CaptureId", capture_id], check=True)
 
 

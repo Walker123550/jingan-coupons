@@ -47,6 +47,7 @@ if ($state.certificateAdded -and $state.thumbprint) {
         }
     }
 }
-& wsl.exe -d Ubuntu -- ($state.linuxRoot + '/.venv/bin/python') ($state.linuxRoot + '/proxy_service.py') stop
+$distro = if ($state.distro) { $state.distro } else { 'Ubuntu' }
+& wsl.exe -d $distro --exec ($state.linuxRoot + '/.venv/bin/python') ($state.linuxRoot + '/proxy_service.py') stop
 Remove-Item -LiteralPath $statePath
 Write-Output 'Capture stopped; original Windows proxy restored. Certificate cleanup may require user confirmation.'

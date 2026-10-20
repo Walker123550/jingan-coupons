@@ -26,6 +26,13 @@ IV = b'wealdger-shgyps0'
 RUN_LOG = None
 
 
+class ApiRejected(ValueError):
+    def __init__(self, code):
+        self.code = code if isinstance(code, int) and not isinstance(code, bool) else None
+        self.login_required = self.code in {50001, 50008, 50014}
+        super().__init__('Saved session is invalid' if self.login_required else 'API business response rejected')
+
+
 class RunLog:
     def __init__(self, folder):
         folder.mkdir(parents=True, exist_ok=True)
@@ -131,7 +138,7 @@ class JinganClient:
             raise ValueError('Unexpected API response shape')
         audit('api_received', method='GET', path=path, http_status=response.status_code, code=data.get('code'))
         if data.get('code') != 20000:
-            raise ValueError('Business response rejected; refresh login in mini-program')
+            raise ApiRejected(data.get('code'))
         return data['data']
 
     def coupons(self):
@@ -219,23 +226,50 @@ def read_headers():
     return headers
 
 
-def import_session(path):
-    data = json.loads(Path(path).read_text(encoding='utf-8'))
+def import_session(path, proxy=None):
+    data = json.loads(Path(path).read_text(encoding='utf-8-sig'))
+    if not isinstance(data, dict):
+        raise ValueError('Invalid session header format')
     parts = urlsplit(data['url'])
     if parts.scheme != 'https' or parts.hostname != 'shgypsapi.linkingfit.club' or parts.username or parts.password or not parts.path.startswith('/api/'):
         raise ValueError('Only this platform account capture is accepted')
     headers = data['headers']
     if isinstance(headers, dict):
         headers = list(headers.items())
-    if not any(k.lower() == 'token' and bool(v) for k,v in headers):
+    if not isinstance(headers, list) or any(
+        not isinstance(pair, (list, tuple)) or len(pair) != 2
+        or not all(isinstance(part, str) for part in pair) for pair in headers
+    ):
+        raise ValueError('Invalid session header format')
+    if sum(k.lower() == 'token' and bool(v) for k,v in headers) != 1:
         raise ValueError('This capture has no logged-in account token')
     target = ROOT / 'private/session.json'
     target.parent.mkdir(parents=True, exist_ok=True)
     allowed = {'token', 'wechatappid', 'user-agent', 'referer', 'content-type', 'accept', 'accept-language'}
     normalized = {'url': BASE + '/v1/user/info', 'method': 'GET',
                   'headers': [[k,v] for k,v in headers if k.lower() in allowed], 'body_base64': ''}
-    target.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding='utf-8')
-    os.chmod(target, 0o600)
+    # Verify candidate before modifying the current session. Never log its headers.
+    client = JinganClient(normalized['headers'], proxy=proxy)
+    try:
+        profile = client.profile()
+        account_delay(profile.get('user_type_time', -1))
+    finally:
+        client.close()
+    normalized['validated_at'] = datetime.now(CN).isoformat(timespec='seconds')
+    temporary = target.with_name('session-' + uuid.uuid4().hex + '.tmp')
+    lock = SingleInstanceLock(ROOT / 'private/claim.lock')
+    try:
+        lock.acquire()
+        with temporary.open('x', encoding='utf-8') as output:
+            os.chmod(temporary, 0o600)
+            json.dump(normalized, output, ensure_ascii=False, indent=2)
+            output.flush()
+            os.fsync(output.fileno())
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+        lock.close()
+    audit('session_validated_and_imported')
 
 
 def main():
@@ -269,8 +303,13 @@ def main():
     audit('run_started', command=args.command, send=bool(getattr(args, 'send', False)), coupon_id=getattr(args, 'coupon', None))
     print(json.dumps({'log_file': str(RUN_LOG.path)}, ensure_ascii=False))
     if args.command == 'import-session':
-        import_session(args.request_file)
-        print(json.dumps({'session_imported': True, 'token_printed': False}))
+        try:
+            import_session(args.request_file, proxy=resolve_proxy(args.proxy))
+        except LockBusy:
+            audit('run_rejected', reason='another_claim_process_is_running')
+            print(json.dumps({'state': 'another_claim_process_is_running'}))
+            return 3
+        print(json.dumps({'session_imported': True, 'login_verified': True, 'token_printed': False}))
         return 0
     lock = None
     if args.command == 'claim' and args.send:
@@ -346,6 +385,17 @@ def main():
 
 
 def report_error(exc):
+    if isinstance(exc, ApiRejected):
+        result = {
+            'state': 'login_required' if exc.login_required else 'business_rejected',
+            'code': exc.code,
+            'reason': str(exc),
+            'hint': ('新登录会话尚未导入脚本；微信重新登录不会自动更新本地会话。'
+                     if exc.login_required else '接口返回业务拒绝；请查看业务码，不要反复重新登录。'),
+        }
+        audit('run_failed', **result)
+        print(json.dumps(result, ensure_ascii=False), file=sys.stderr)
+        return
     known = {
         'Release time has passed',
         'Next release is not today; refusing to silently wait for another day',
@@ -361,6 +411,9 @@ def report_error(exc):
         'Invalid account delay returned by platform',
         'Unexpected API response shape',
         'Invalid local network configuration',
+        'Only this platform account capture is accepted',
+        'Invalid session header format',
+        'This capture has no logged-in account token',
     }
     reason = str(exc) if isinstance(exc, ValueError) and str(exc) in known else type(exc).__name__
     result = {'state': 'configuration_or_login_required', 'reason': reason,

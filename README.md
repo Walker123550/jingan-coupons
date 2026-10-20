@@ -6,6 +6,8 @@ Windows原生或WSL/Linux + Python 3.12 项目，用于读取官方消费券列�
 
 接手运行请先阅读 [交接说明](docs/HANDOFF.md)；已处理问题和剩余边界见 [通用性检查](docs/REVIEW.md)。
 
+2026-10-20 登录恢复修复：Windows和WSL各通过41项测试。当前本机会话仍返回50001，尚未恢复领取条件。详见 [登录恢复状态](docs/SESSION-RECOVERY.md)。import-session现在会先验证候选会话再替换，失败时保留原文件。
+
 ## 安装
 
 ```bash

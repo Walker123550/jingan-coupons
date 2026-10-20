@@ -1,6 +1,7 @@
 param([ValidateRange(60, 7200)][int]$DurationSeconds = 7200, [string]$Distro = 'Ubuntu', [string]$UpstreamProxy = '')
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WindowsProxy.ps1')
+. (Join-Path $PSScriptRoot 'WindowsCertificate.ps1')
 $statePath = Join-Path $PSScriptRoot 'private\windows-state.json'
 $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 if (Test-Path -LiteralPath $statePath) {
@@ -9,7 +10,7 @@ if (Test-Path -LiteralPath $statePath) {
     $statusText = & wsl.exe -d $Distro --exec ($saved.linuxRoot + '/.venv/bin/python') ($saved.linuxRoot + '/proxy_service.py') status
     if ($LASTEXITCODE -ne 0) { throw 'Could not inspect existing capture process.' }
     $status = $statusText | ConvertFrom-Json
-    if ($status.running -and (Test-Path -LiteralPath ('Cert:\CurrentUser\Root\' + $saved.thumbprint))) {
+    if ($status.running -and (Find-JinganTrustedRoot -Thumbprint $saved.thumbprint)) {
         if (-not $saved.PSObject.Properties['connections']) {
             $saved | Add-Member -NotePropertyName connections -NotePropertyValue (Get-JinganConnectionSnapshot)
         }
@@ -63,13 +64,17 @@ if ($upstream) { $launchArgs += @('--upstream', $upstream) }
 & wsl.exe @launchArgs
 if ($LASTEXITCODE -ne 0) { throw 'WSL capture service failed to start.' }
 $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new((Join-Path $PSScriptRoot 'private\mitm\mitmproxy-ca-cert.cer'))
-$certAlreadyPresent = Test-Path -LiteralPath ('Cert:\CurrentUser\Root\' + $certificate.Thumbprint)
+$trustedRoot = Find-JinganTrustedRoot -Thumbprint $certificate.Thumbprint
+$certAlreadyPresent = $null -ne $trustedRoot
 $captureId = [guid]::NewGuid().ToString()
 $state = @{original = $original; connections = (Get-JinganConnectionSnapshot); thumbprint = $certificate.Thumbprint; certificateAdded = (-not $certAlreadyPresent); linuxRoot = $linuxRoot; distro = $Distro; captureId = $captureId}
 $state | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $statePath -Encoding utf8
 try {
     if (-not $certAlreadyPresent) {
         Import-Certificate -FilePath (Join-Path $PSScriptRoot 'private\mitm\mitmproxy-ca-cert.cer') -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
+        if (-not (Find-JinganTrustedRoot -Thumbprint $certificate.Thumbprint)) {
+            throw 'Certificate import returned without a matching trusted root; check the Windows account and root store.'
+        }
     }
     # Verify Windows -> WSL -> existing upstream -> HTTPS before switching system proxy.
     $probe = Invoke-WebRequest -Uri 'https://mitmproxy.org' -Proxy 'http://127.0.0.1:18080' -TimeoutSec 15
